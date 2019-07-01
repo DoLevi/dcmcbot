@@ -36,8 +36,8 @@ public class TmuxInteractor {
         this.commandWrapper = String.format("tmux send-keys -t \"%s\" C-z %s Enter",
                 tmuxSessionName, "%s");
         this.getPaneCommand = String.format("tmux capture-pane -t \"%s\" -p", tmuxSessionName);
-        this.blackListedCommands = minecraftBot.getBlackListedCommands();
-        this.whiteListedCommands = minecraftBot.getWhiteListedCommands();
+        this.blackListedCommands = minecraftBot.getBlackListedCommands().getCommand();
+        this.whiteListedCommands = minecraftBot.getWhiteListedCommands().getCommand();
     }
 
     /**

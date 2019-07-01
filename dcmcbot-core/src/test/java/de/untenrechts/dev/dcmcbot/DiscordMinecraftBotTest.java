@@ -12,7 +12,7 @@ public class DiscordMinecraftBotTest {
 
     // TODO: 30.06.2019 write tests
     @Test
-    void test() {
+    void launchClientTest() {
         LOG.info("CP: {}", DiscordMinecraftBotTest.class.getProtectionDomain().getCodeSource().getLocation().getPath());
         LOG.info("LOG4J2 config found: {}", new File("src/test/resources/log4j2-test.xml").isFile());
         LOG.info("Test");

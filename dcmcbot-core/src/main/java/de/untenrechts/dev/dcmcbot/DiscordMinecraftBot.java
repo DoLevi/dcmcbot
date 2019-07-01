@@ -23,28 +23,30 @@ public class DiscordMinecraftBot {
     public static void main(String[] args) {
         LOG.info("Starting application ...");
         String configPath = System.getProperty(DcMcBotConstants.CONFIGURATION_PARAM_NAME);
-        Optional<Reader> configOptional = getConfigFileReader(configPath);
-        if (configOptional.isPresent()) {
-            DcMcBotConfigHandler.initialize(configOptional.get());
-            DiscordMinecraftBot bot = new DiscordMinecraftBot();
-            bot.discordClient.login().block();
-        }
+        Optional<Reader> configOptional = getFileReader(configPath);
+        configOptional.ifPresent(DiscordMinecraftBot::launchClient);
         LOG.info("Exiting application ...");
     }
 
-    private static Optional<Reader> getConfigFileReader(String configPath) {
+    private static void launchClient(Reader configReader) {
+        DcMcBotConfigHandler.initialize(configReader);
+        DiscordMinecraftBot bot = new DiscordMinecraftBot();
+        bot.discordClient.login().block();
+    }
+
+    private static Optional<Reader> getFileReader(String configPath) {
         try {
-            LOG.debug("Reading in configuration file: {}", configPath);
+            LOG.debug("Reading in file: {}", configPath);
             return Optional.of(new FileReader(new File(configPath)));
         } catch (FileNotFoundException e) {
-            LOG.error("Config file: {} could not be found.", configPath);
+            LOG.error("File: {} could not be found.", configPath);
             return Optional.empty();
         }
     }
 
     private DiscordMinecraftBot() {
         LOG.debug("Constructing {} ...", DiscordMinecraftBot.class.getSimpleName());
-        String token = DcMcBotConfigHandler.getConfig().getToken();
+        String token = DcMcBotConfigHandler.getConfig().getDiscordBot().getToken();
         discordClient = new DiscordClientBuilder(token).build();
         discordClient.getEventDispatcher().on(ReadyEvent.class)
                 .subscribe(CommandRouter::onReady);

@@ -29,12 +29,18 @@ public class CommandRouter {
 
     public static void onNewMessage(MessageCreateEvent messageCreateEvent) {
         Message message = messageCreateEvent.getMessage();
-        Optional<String> optionalContent = message.getContent();
-        if (optionalContent.isPresent()) {
-            String content = optionalContent.get();
-            if (content.startsWith(COMMAND_PREFIX)) {
-                onNewCommand(message.getChannel(), content.substring(COMMAND_PREFIX.length() - 1));
-            } // else: do nothing, the message was not meant for you...
+        try {
+            Optional<String> optionalContent = message.getContent();
+            if (optionalContent.isPresent()) {
+                String content = optionalContent.get();
+                if (content.startsWith(COMMAND_PREFIX)) {
+                    onNewCommand(message.getChannel(), content.substring(COMMAND_PREFIX.length()));
+                } // else: do nothing, the message was not meant for you...
+            }
+        } catch (RuntimeException e) {
+            // Keep running if something bad happens
+            LOG.error("Processing of new Message failed. {}", e.getMessage(), e);
+            handleProcessingException(message, e);
         }
     }
 
@@ -43,6 +49,7 @@ public class CommandRouter {
     }
 
     private static void onNewCommand(Mono<MessageChannel> channelMono, String command) {
+        // TODO: 02.07.2019 make prettier
         List<ICommandExecutable> commanders = CommandContainer.COMMAND_LIST.stream()
                 .filter(commanderIt -> commanderIt.getInvocation().equals(command))
                 .collect(toList());
@@ -61,6 +68,17 @@ public class CommandRouter {
             }
             commanders.forEach(commandExecutor -> commandExecutor.onCommand(channelMono, parameters));
         }
+    }
+
+    private static void handleProcessingException(Message onMessage, RuntimeException e) {
+        onMessage.getChannel()
+                .blockOptional()
+                .ifPresent(channel -> sendExceptionResponse(channel, e));
+    }
+
+    private static void sendExceptionResponse(MessageChannel channel, RuntimeException e) {
+        Mono<Message> messageMono = channel.createMessage(e.getMessage());
+        messageMono.block();
     }
 
 }

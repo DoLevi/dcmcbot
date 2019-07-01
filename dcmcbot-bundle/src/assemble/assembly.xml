@@ -2,7 +2,7 @@
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.2 http://maven.apache.org/xsd/assembly-1.1.2.xsd">
 
-    <id>${project.parent.artifactId}</id>
+    <id>assembly</id>
 
     <includeBaseDirectory>false</includeBaseDirectory>
 
@@ -12,25 +12,17 @@
 
     <fileSets>
         <fileSet>
-            <directory>/src/assemble/resources/</directory>
-            <outputDirectory>/</outputDirectory>
+            <directory>src/assemble/resources/</directory>
+            <outputDirectory>./</outputDirectory>
         </fileSet>
     </fileSets>
 
     <dependencySets>
         <dependencySet>
-            <outputDirectory>/lib</outputDirectory>
-            <!--<excludes>-->
-                <!--<exclude>${project.parent.artifactId}</exclude>-->
-            <!--</excludes>-->
+            <useProjectArtifact>false</useProjectArtifact>
+            <outputDirectory>lib</outputDirectory>
+            <unpack>false</unpack>
         </dependencySet>
-        <!--<dependencySet>-->
-            <!--<outputDirectory>/lib</outputDirectory>-->
-            <!--<includes>-->
-                <!--<include>${project.parent.artifactId}</include>-->
-            <!--</includes>-->
-            <!--<outputFileNameMapping>${project.parent.artifactId}</outputFileNameMapping>-->
-        <!--</dependencySet>-->
     </dependencySets>
 
 </assembly>

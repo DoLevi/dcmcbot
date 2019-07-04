@@ -9,9 +9,10 @@
         </File>
     </Appenders>
     <Loggers>
-        <Root level="info">
+        <Root level="warn"/>
+        <Logger name="de.untenrechts.dev.dcmcbot" level="debug">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="File"/>
-        </Root>
+        </Logger>
     </Loggers>
 </Configuration>

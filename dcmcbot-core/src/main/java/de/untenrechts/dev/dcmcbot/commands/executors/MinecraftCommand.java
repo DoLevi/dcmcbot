@@ -14,7 +14,7 @@ public class MinecraftCommand implements ICommandExecutable {
 
     private static final Logger LOG = LoggerFactory.getLogger(MinecraftCommand.class);
 
-    private final String INVOCATION = "list";
+    private final String INVOCATION = "mc";
     private final String[] PARAMETERS = new String[]{"mc-console-command"};
 
     @Override
@@ -41,6 +41,7 @@ public class MinecraftCommand implements ICommandExecutable {
         } else {
             String error = String.format("Unable to execute command to Minecraft server. " +
                     "Expected 1 argument instead of: %d", parameters.length);
+            // Refactor to own exception and catch only this new exception
             throw new IllegalArgumentException(error);
         }
     }

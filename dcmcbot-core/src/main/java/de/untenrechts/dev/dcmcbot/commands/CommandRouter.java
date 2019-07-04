@@ -1,5 +1,6 @@
 package de.untenrechts.dev.dcmcbot.commands;
 
+import de.untenrechts.dev.dcmcbot.exceptions.IllegalCommandException;
 import discord4j.core.event.domain.lifecycle.ReadyEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.event.domain.message.MessageUpdateEvent;
@@ -12,6 +13,7 @@ import reactor.core.publisher.Mono;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static de.untenrechts.dev.dcmcbot.DcMcBotConstants.*;
@@ -37,10 +39,13 @@ public class CommandRouter {
                     onNewCommand(message.getChannel(), content.substring(COMMAND_PREFIX.length()));
                 } // else: do nothing, the message was not meant for you...
             }
-        } catch (RuntimeException e) {
+        } catch (IllegalCommandException e) {
+            // Keep running if something bad happens
+            LOG.error("Processing of new Message failed. {}", e.getMessage());
+            respondWithMisbehaviourInfo(message, e);
+        }catch (RuntimeException e) {
             // Keep running if something bad happens
             LOG.error("Processing of new Message failed. {}", e.getMessage(), e);
-            handleProcessingException(message, e);
         }
     }
 
@@ -48,19 +53,20 @@ public class CommandRouter {
         // TODO: 26.06.2019 implement
     }
 
-    private static void onNewCommand(Mono<MessageChannel> channelMono, String command) {
+    private static void onNewCommand(Mono<MessageChannel> channelMono, String message) {
         // TODO: 02.07.2019 make prettier
+        String command = message.split(PARAMETER_SEPARATOR)[0];
         List<ICommandExecutable> commanders = CommandContainer.COMMAND_LIST.stream()
-                .filter(commanderIt -> commanderIt.getInvocation().equals(command))
+                .filter(canBeInvoked(command))
                 .collect(toList());
         if (commanders.size() == 0) {
-            LOG.debug("Unknown command: '{}'. I will not respond.", command);
+            LOG.debug("Unknown command: '{}'. I will not respond.", message);
         } else {
-            String[] parametersRaw = command.split(PARAMETER_SEPARATOR);
+            String[] parametersRaw = message.split(PARAMETER_SEPARATOR);
             String[] parameters = Arrays.copyOfRange(parametersRaw, 1, parametersRaw.length);
             if (commanders.size() > 1) {
                 LOG.warn("Multiple command mapping detected, command: '{}' / mappings: {}",
-                        command,
+                        message,
                         commanders.stream()
                                 .map(ICommandExecutable::getInvocation)
                                 .collect(Collectors.joining(","))
@@ -70,7 +76,7 @@ public class CommandRouter {
         }
     }
 
-    private static void handleProcessingException(Message onMessage, RuntimeException e) {
+    private static void respondWithMisbehaviourInfo(Message onMessage, IllegalCommandException e) {
         onMessage.getChannel()
                 .blockOptional()
                 .ifPresent(channel -> sendExceptionResponse(channel, e));
@@ -79,6 +85,10 @@ public class CommandRouter {
     private static void sendExceptionResponse(MessageChannel channel, RuntimeException e) {
         Mono<Message> messageMono = channel.createMessage(e.getMessage());
         messageMono.block();
+    }
+
+    private static Predicate<ICommandExecutable> canBeInvoked(String invocationCommand) {
+        return executor -> executor.getInvocation().equals(invocationCommand);
     }
 
 }

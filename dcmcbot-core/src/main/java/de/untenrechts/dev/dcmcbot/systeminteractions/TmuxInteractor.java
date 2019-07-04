@@ -2,18 +2,14 @@ package de.untenrechts.dev.dcmcbot.systeminteractions;
 
 import de.untenrechts.dev.dcmcbot.config.DcMcBotConfigHandler;
 import de.untenrechts.dev.dcmcbot.config.MinecraftBotType;
-import org.apache.commons.lang3.StringUtils;
+import de.untenrechts.dev.dcmcbot.exceptions.IllegalCommandException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -24,18 +20,17 @@ public class TmuxInteractor {
     private static final TmuxInteractor INSTANCE = new TmuxInteractor();
 
     private final Runtime runtime;
-    private final String commandWrapper;
-    private final String getPaneCommand;
+    private final String tmuxSessionName;
+    private final String[] getPaneCommand;
     private final List<String> blackListedCommands;
     private final List<String> whiteListedCommands;
 
     private TmuxInteractor() {
         this.runtime = Runtime.getRuntime();
         MinecraftBotType minecraftBot = DcMcBotConfigHandler.getConfig().getMinecraftBot();
-        String tmuxSessionName = minecraftBot.getTmuxMinecraftSessionName();
-        this.commandWrapper = String.format("tmux send-keys -t \"%s\" C-z %s Enter",
-                tmuxSessionName, "%s");
-        this.getPaneCommand = String.format("tmux capture-pane -t \"%s\" -p", tmuxSessionName);
+        this.tmuxSessionName = minecraftBot.getTmuxMinecraftSessionName();
+        final String inTmuxCommand = String.format("-t \"%s\"", tmuxSessionName);
+        this.getPaneCommand = new String[] {"tmux capture-pane", inTmuxCommand, "-p"};
         this.blackListedCommands = minecraftBot.getBlackListedCommands().getCommand();
         this.whiteListedCommands = minecraftBot.getWhiteListedCommands().getCommand();
     }
@@ -50,7 +45,7 @@ public class TmuxInteractor {
     public static List<String> bashToTmux(String command, boolean readOutput) {
         INSTANCE.validateAgainstWhitelist(command);
         INSTANCE.validateAgainstBlacklist(command);
-        final String tmuxCommand = String.format(INSTANCE.commandWrapper, command);
+        final String[] tmuxCommand = INSTANCE.generateTmuxCommand(command);
         INSTANCE.executeCommand(tmuxCommand, false);
         if (readOutput) {
             return INSTANCE.getLinesAfterCommand(command);
@@ -77,8 +72,9 @@ public class TmuxInteractor {
                 .split(System.lineSeparator());
     }
 
-    private Optional<String> executeCommand(String command, boolean readOutput) {
+    private Optional<String> executeCommand(String[] command, boolean readOutput) {
         try {
+            LOG.debug("Executing command: {}", String.join("", command));
             Process process = runtime.exec(command);
             process.waitFor();
             if (readOutput) {
@@ -91,6 +87,12 @@ public class TmuxInteractor {
             LOG.error("Unable to bash command '{}'. {}", command, e.getMessage(), e);
             throw new IllegalStateException("Unable to bash command to tmux.");
         }
+    }
+
+    private String[] generateTmuxCommand(String command) {
+        final String inTmuxCommand
+                = String.format("-t \"%s\" \"%s\" Enter", this.tmuxSessionName, command);
+        return new String[] {"tmux", "send-keys", inTmuxCommand};
     }
 
     private String streamToString(InputStream inputStream) {
@@ -118,6 +120,7 @@ public class TmuxInteractor {
                     .findAny()
                     .orElseThrow(() -> handleNotWhitelisted(command));
         }
+        LOG.debug("Command '{}' passed the whitelist validation.", command);
     }
 
     private void validateAgainstBlacklist(String command) {
@@ -128,22 +131,23 @@ public class TmuxInteractor {
                     .findAny()
                     .ifPresent(this::handleBlacklisted);
         }
+        LOG.debug("Command '{}' passed the blacklist validation.", command);
     }
 
     private Predicate<String> matchesRegex(String listedCommand) {
         return str -> Pattern.matches(listedCommand, str);
     }
 
-    private IllegalArgumentException handleNotWhitelisted(String command) {
+    private IllegalCommandException handleNotWhitelisted(String command) {
         String error = String.format("Command '%s' is not allowed: Not whitelisted.", command);
         LOG.info(error);
-        return new IllegalArgumentException(error);
+        return new IllegalCommandException(error);
     }
 
     private void handleBlacklisted(String command) {
         String error = String.format("Commands '%s' is not allowed: Blacklisted.", command);
         LOG.info(error);
-        throw new IllegalArgumentException(error);
+        throw new IllegalCommandException(error);
     }
 
 }

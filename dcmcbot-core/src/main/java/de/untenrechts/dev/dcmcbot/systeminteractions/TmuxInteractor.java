@@ -44,7 +44,8 @@ public class TmuxInteractor {
     /**
      * Fires a bash command to the TMUX session loaded from the object config
      *
-     * @param command    command to be fired
+     * @param command   command to be fired
+     * @param ioMode    IoMode for which to execute the send command
      * @return a String array of lines considered as responses to the issues command
      */
     public static List<String> send(String command, IoMode ioMode) {

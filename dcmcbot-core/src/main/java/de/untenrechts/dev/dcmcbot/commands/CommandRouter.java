@@ -43,7 +43,7 @@ public class CommandRouter {
             // Keep running if something bad happens
             LOG.error("Processing of new Message failed. {}", e.getMessage());
             respondSafely(message, e.getMessage());
-        }catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             // Keep running if something bad happens
             LOG.error("Processing of new Message failed. {}", e.getMessage(), e);
             respondSafely(message, "Some programmer(s) messed up :(");

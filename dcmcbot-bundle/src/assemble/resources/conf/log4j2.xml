@@ -10,7 +10,7 @@
     </Appenders>
     <Loggers>
         <Root level="warn"/>
-        <Logger name="de.untenrechts.dev.dcmcbot" level="debug">
+        <Logger name="de.untenrechts.dev.dcmcbot" level="info">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="File"/>
         </Logger>

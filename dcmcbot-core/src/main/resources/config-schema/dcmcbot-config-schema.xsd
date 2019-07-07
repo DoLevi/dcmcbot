@@ -20,7 +20,8 @@
     </xs:complexType>
     <xs:complexType name="MinecraftBotType">
         <xs:sequence>
-            <xs:element name="TmuxMinecraftSessionName" type="xs:string"/>
+            <xs:element name="TmuxSessionName" type="xs:string"/>
+            <xs:element name="LogContentOffset" type="xs:int"/>
             <xs:element name="blackListedCommands" type="CommandListType"/>
             <xs:element name="whiteListedCommands" type="CommandListType"/>
         </xs:sequence>

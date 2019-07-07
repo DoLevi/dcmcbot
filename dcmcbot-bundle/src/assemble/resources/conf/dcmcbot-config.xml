@@ -5,7 +5,8 @@
     <DisplayBotIconUrl>https://images.pexels.com/photos/2534325/pexels-photo-2534325.jpeg?cs=srgb&amp;dl=animal-animal-photography-blur-2534325.jpg&amp;fm=jpg</DisplayBotIconUrl>
   </DiscordBot>
   <MinecraftBot>
-    <TmuxMinecraftSessionName>example_session</TmuxMinecraftSessionName>
+    <TmuxSessionName>example_session</TmuxSessionName>
+    <LogContentOffset>32</LogContentOffset>
     <blackListedCommands>
       <Command>string</Command>
     </blackListedCommands>

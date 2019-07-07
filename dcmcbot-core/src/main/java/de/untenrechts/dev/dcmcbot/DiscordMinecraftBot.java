@@ -22,6 +22,7 @@ public class DiscordMinecraftBot {
 
     public static void main(String[] args) {
         LOG.info("Starting application ...");
+        LOG.debug("Working directory: {}", System.getProperty("user.dir"));
         String configPath = System.getProperty(DcMcBotConstants.CONFIGURATION_PARAM_NAME);
         Optional<Reader> configOptional = getFileReader(configPath);
         configOptional.ifPresent(DiscordMinecraftBot::launchClient);

@@ -2,20 +2,21 @@ package de.untenrechts.dev.dcmcbot.systeminteractions;
 
 import de.untenrechts.dev.dcmcbot.config.DcMcBotConfigHandler;
 import de.untenrechts.dev.dcmcbot.config.MinecraftBotType;
-import org.apache.commons.lang3.StringUtils;
+import de.untenrechts.dev.dcmcbot.exceptions.IllegalCommandException;
+import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+
+import static de.untenrechts.dev.dcmcbot.DcMcBotConstants.TMUX_BASH_COMMAND;
+import static de.untenrechts.dev.dcmcbot.DcMcBotConstants.IoMode;
+import static de.untenrechts.dev.dcmcbot.DcMcBotConstants.TmuxCommand;
 
 public class TmuxInteractor {
 
@@ -23,19 +24,19 @@ public class TmuxInteractor {
 
     private static final TmuxInteractor INSTANCE = new TmuxInteractor();
 
-    private final Runtime runtime;
-    private final String commandWrapper;
-    private final String getPaneCommand;
+    private final String tmuxSessionName;
+    private final int logContentOffset;
+    private final int retrySleepMillis;
+    private final int retryCount;
     private final List<String> blackListedCommands;
     private final List<String> whiteListedCommands;
 
     private TmuxInteractor() {
-        this.runtime = Runtime.getRuntime();
         MinecraftBotType minecraftBot = DcMcBotConfigHandler.getConfig().getMinecraftBot();
-        String tmuxSessionName = minecraftBot.getTmuxMinecraftSessionName();
-        this.commandWrapper = String.format("tmux send-keys -t \"%s\" C-z %s Enter",
-                tmuxSessionName, "%s");
-        this.getPaneCommand = String.format("tmux capture-pane -t \"%s\" -p", tmuxSessionName);
+        this.tmuxSessionName = minecraftBot.getTmuxSessionName();
+        this.logContentOffset = minecraftBot.getLogContentOffset();
+        this.retrySleepMillis = 256; // millis
+        this.retryCount = 3; // millis
         this.blackListedCommands = minecraftBot.getBlackListedCommands().getCommand();
         this.whiteListedCommands = minecraftBot.getWhiteListedCommands().getCommand();
     }
@@ -43,53 +44,111 @@ public class TmuxInteractor {
     /**
      * Fires a bash command to the TMUX session loaded from the object config
      *
-     * @param command command to be fired
-     * @param readOutput whether to read output, false will be faster
+     * @param command    command to be fired
      * @return a String array of lines considered as responses to the issues command
      */
-    public static List<String> bashToTmux(String command, boolean readOutput) {
+    public static List<String> send(String command, IoMode ioMode) {
         INSTANCE.validateAgainstWhitelist(command);
         INSTANCE.validateAgainstBlacklist(command);
-        final String tmuxCommand = String.format(INSTANCE.commandWrapper, command);
-        INSTANCE.executeCommand(tmuxCommand, false);
-        if (readOutput) {
-            return INSTANCE.getLinesAfterCommand(command);
-        } else {
-            return Collections.emptyList();
+        List<String> directResponse = INSTANCE.sendCommand(ioMode, command)
+                .map(Arrays::asList)
+                .orElse(Collections.emptyList());
+        if (ioMode == IoMode.SEND_WITH_READ) {
+            List<String> onPaneResponse = INSTANCE.getLinesAfterCommandRetry(command);
+            onPaneResponse.addAll(directResponse);
+            return onPaneResponse;
         }
+        return directResponse;
+    }
+
+    private List<String> getLinesAfterCommandRetry(String command) {
+        for (int i = 0; i < this.retryCount; ++i) {
+            List<String> lines = getLinesAfterCommand(command);
+            if (lines.size() > 0) {
+                return lines;
+            }
+            try {
+                Thread.sleep(this.retrySleepMillis);
+            } catch (InterruptedException e) {
+                LOG.error("Sleep during retry for command '{}' was interrupted. {}",
+                        command, e.getMessage(), e);
+            }
+        }
+        return new ArrayList<>();
     }
 
     private List<String> getLinesAfterCommand(String command) {
         // TODO: 01.07.2019 implement scroll up if command not found
         List<String> linesAfterCommand = new ArrayList<>();
-        for (String line : getPaneAsArray()) {
-            if (line.equals(command) || linesAfterCommand.size() > 0) {
-                linesAfterCommand.add(line);
-            }
+        String[] allLines = INSTANCE.getPaneAsArray();
+        ArrayUtils.reverse(allLines);
+        for (String line : allLines) {
+            String lineContent = extractLineContent(line);
+            if (lineContent.equals(command)) {
+                return linesAfterCommand;
+            } else if (!lineContent.isEmpty()) {
+                linesAfterCommand.add(lineContent);
+            } // else skip empty lines
         }
-        return linesAfterCommand;
+        LOG.error("Unable to get lines after command. Command not found: '{}'", command);
+        return new ArrayList<>();
+    }
+
+    private String extractLineContent(String logLine) {
+        if (logLine.length() >= this.logContentOffset) {
+            return logLine.substring(this.logContentOffset);
+        } else if (logLine.startsWith("> ")) {
+            return logLine.substring(2);
+        } else if (logLine.startsWith(">")) {
+            return logLine.substring(1);
+        }
+        return logLine;
     }
 
     private String[] getPaneAsArray() {
-        Optional<String> allLinesOpt = executeCommand(getPaneCommand, true);
+        Optional<String> allLinesOpt = getCommand();
         return allLinesOpt
                 .orElse("")
                 .split(System.lineSeparator());
     }
 
-    private Optional<String> executeCommand(String command, boolean readOutput) {
+    private Optional<String> sendCommand(IoMode ioMode, String command) {
+        String[] processArguments = new String[] {
+                TMUX_BASH_COMMAND, TmuxCommand.SEND.getValue(), this.tmuxSessionName, command
+        };
+        return executeProcess(processArguments, ioMode);
+    }
+
+    private Optional<String> getCommand() {
+        IoMode ioMode = IoMode.SEND_WITH_READ;
+        String[] processArguments = new String[] {
+                TMUX_BASH_COMMAND, TmuxCommand.GET.getValue(), this.tmuxSessionName
+        };
+        return executeProcess(processArguments, ioMode);
+    }
+
+    private Optional<String> executeProcess(String[] processArguments, IoMode ioMode) {
         try {
-            Process process = runtime.exec(command);
+            LOG.debug("Starting process for command: '{}'",
+                    String.join(" ", processArguments));
+            Process process = new ProcessBuilder(processArguments).start();
             process.waitFor();
-            if (readOutput) {
-                InputStream resultStream = process.getInputStream();
-                return Optional.of(streamToString(resultStream));
-            } else {
-                return Optional.empty();
+            switch (ioMode) {
+                case SEND_WITH_READ:
+                    InputStream resultStream = process.getInputStream();
+                    String result = streamToString(resultStream);
+                    return Optional.of(result);
+                case SEND_ONLY:
+                    LOG.debug("SEND_ONLY so returning empty Optional.");
+                    return Optional.empty();
+                default:
+                    throw new IllegalStateException("Undefined enum value: " + ioMode);
             }
         } catch (IOException | InterruptedException e) {
-            LOG.error("Unable to bash command '{}'. {}", command, e.getMessage(), e);
-            throw new IllegalStateException("Unable to bash command to tmux.");
+            String command = String.join(" ", processArguments);
+            String error = String.format("Unable to bash command '%s' (IoMode: %s). %s",
+                    command, ioMode, e.getMessage());
+            throw new IllegalStateException(error, e);
         }
     }
 
@@ -118,6 +177,7 @@ public class TmuxInteractor {
                     .findAny()
                     .orElseThrow(() -> handleNotWhitelisted(command));
         }
+        LOG.debug("Command '{}' passed the whitelist validation.", command);
     }
 
     private void validateAgainstBlacklist(String command) {
@@ -128,22 +188,21 @@ public class TmuxInteractor {
                     .findAny()
                     .ifPresent(this::handleBlacklisted);
         }
+        LOG.debug("Command '{}' passed the blacklist validation.", command);
     }
 
     private Predicate<String> matchesRegex(String listedCommand) {
         return str -> Pattern.matches(listedCommand, str);
     }
 
-    private IllegalArgumentException handleNotWhitelisted(String command) {
+    private IllegalCommandException handleNotWhitelisted(String command) {
         String error = String.format("Command '%s' is not allowed: Not whitelisted.", command);
-        LOG.info(error);
-        return new IllegalArgumentException(error);
+        return new IllegalCommandException(error);
     }
 
     private void handleBlacklisted(String command) {
         String error = String.format("Commands '%s' is not allowed: Blacklisted.", command);
-        LOG.info(error);
-        throw new IllegalArgumentException(error);
+        throw new IllegalCommandException(error);
     }
 
 }

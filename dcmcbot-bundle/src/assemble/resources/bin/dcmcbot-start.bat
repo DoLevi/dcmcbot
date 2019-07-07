@@ -1,1 +1,0 @@
-# script to start dcmcbot application

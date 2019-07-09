@@ -1,5 +1,6 @@
 package de.untenrechts.dev.dcmcbot.commands;
 
+import de.untenrechts.dev.dcmcbot.config.DcMcBotConfigHandler;
 import de.untenrechts.dev.dcmcbot.exceptions.IllegalCommandException;
 import discord4j.core.event.domain.lifecycle.ReadyEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;
@@ -66,12 +67,11 @@ public class CommandRouter {
             String[] parametersRaw = message.split(PARAMETER_SEPARATOR);
             String[] parameters = Arrays.copyOfRange(parametersRaw, 1, parametersRaw.length);
             if (commanders.size() > 1) {
+                String executors = commanders.stream()
+                        .map(ICommandExecutable::getInvocation)
+                        .collect(Collectors.joining(","));
                 LOG.warn("Multiple command mapping detected, command: '{}' / mappings: {}",
-                        message,
-                        commanders.stream()
-                                .map(ICommandExecutable::getInvocation)
-                                .collect(Collectors.joining(","))
-                );
+                        message, executors);
             }
             commanders.forEach(commandExecutor -> commandExecutor.onCommand(channelMono, parameters));
         }

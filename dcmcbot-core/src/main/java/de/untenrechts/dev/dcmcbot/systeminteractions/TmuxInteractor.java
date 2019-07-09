@@ -2,7 +2,6 @@ package de.untenrechts.dev.dcmcbot.systeminteractions;
 
 import de.untenrechts.dev.dcmcbot.config.DcMcBotConfigHandler;
 import de.untenrechts.dev.dcmcbot.config.MinecraftBotType;
-import de.untenrechts.dev.dcmcbot.exceptions.IllegalCommandException;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,8 +10,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
-import java.util.function.Predicate;
-import java.util.regex.Pattern;
 
 import static de.untenrechts.dev.dcmcbot.DcMcBotConstants.TMUX_BASH_COMMAND;
 import static de.untenrechts.dev.dcmcbot.DcMcBotConstants.IoMode;

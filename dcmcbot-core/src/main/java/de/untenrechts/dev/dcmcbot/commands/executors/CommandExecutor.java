@@ -19,7 +19,7 @@ public class CommandExecutor {
     private static final Logger LOG = LoggerFactory.getLogger(CommandExecutor.class);
 
 
-    public static void handleMessageResponse(Consumer<MessageChannel> messageCreator,
+    static void handleMessageResponse(Consumer<MessageChannel> messageCreator,
                                              Mono<MessageChannel> channelMono) {
         MessageChannel messageChannel = channelMono.block();
         if (messageChannel == null) {
@@ -29,7 +29,7 @@ public class CommandExecutor {
         }
     }
 
-    public static void handleMessageResponse(BiConsumer<MessageChannel, String[]> messageCreator,
+    static void handleMessageResponse(BiConsumer<MessageChannel, String[]> messageCreator,
                                              Mono<MessageChannel> channelMono,
                                              String[] parameters) {
         MessageChannel messageChannel = channelMono.block();
@@ -40,7 +40,7 @@ public class CommandExecutor {
         }
     }
 
-    public static void fillWithAuthor(EmbedCreateSpec embedCreateSpec) {
+    static void fillWithAuthor(EmbedCreateSpec embedCreateSpec) {
         DiscordBotType botConfig = DcMcBotConfigHandler.getConfig().getDiscordBot();
         embedCreateSpec.setAuthor(
                 botConfig.getDisplayBotName(),

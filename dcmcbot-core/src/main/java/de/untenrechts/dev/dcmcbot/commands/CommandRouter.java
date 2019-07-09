@@ -1,6 +1,5 @@
 package de.untenrechts.dev.dcmcbot.commands;
 
-import de.untenrechts.dev.dcmcbot.config.DcMcBotConfigHandler;
 import de.untenrechts.dev.dcmcbot.exceptions.IllegalCommandException;
 import discord4j.core.event.domain.lifecycle.ReadyEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;

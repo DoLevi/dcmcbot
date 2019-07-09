@@ -2,7 +2,7 @@ package de.untenrechts.dev.dcmcbot;
 
 public class DcMcBotConstants {
 
-    public static final String CONFIGURATION_PARAM_NAME = "dcmcbot.configurationFile";
+    static final String CONFIGURATION_PARAM_NAME = "dcmcbot.configurationFile";
     public static final String BOT_FURL = "https://lmgtfy.com/?s=b&q=%s";
 
     public static final String COMMAND_PREFIX = "!";

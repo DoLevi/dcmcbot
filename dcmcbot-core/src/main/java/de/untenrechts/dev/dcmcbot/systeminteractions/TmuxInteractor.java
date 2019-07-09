@@ -28,8 +28,6 @@ public class TmuxInteractor {
     private final int logContentOffset;
     private final int retrySleepMillis;
     private final int retryCount;
-    private final List<String> blackListedCommands;
-    private final List<String> whiteListedCommands;
 
     private TmuxInteractor() {
         MinecraftBotType minecraftBot = DcMcBotConfigHandler.getConfig().getMinecraftBot();
@@ -37,8 +35,6 @@ public class TmuxInteractor {
         this.logContentOffset = minecraftBot.getLogContentOffset();
         this.retrySleepMillis = 256; // millis
         this.retryCount = 3; // millis
-        this.blackListedCommands = minecraftBot.getBlackListedCommands().getCommand();
-        this.whiteListedCommands = minecraftBot.getWhiteListedCommands().getCommand();
     }
 
     /**
@@ -48,9 +44,7 @@ public class TmuxInteractor {
      * @param ioMode    IoMode for which to execute the send command
      * @return a String array of lines considered as responses to the issues command
      */
-    public static List<String> send(String command, IoMode ioMode) {
-        INSTANCE.validateAgainstWhitelist(command);
-        INSTANCE.validateAgainstBlacklist(command);
+    public static List<String> send(IoMode ioMode, String command) {
         List<String> directResponse = INSTANCE.sendCommand(ioMode, command)
                 .map(Arrays::asList)
                 .orElse(Collections.emptyList());
@@ -66,6 +60,7 @@ public class TmuxInteractor {
         for (int i = 0; i < this.retryCount; ++i) {
             List<String> lines = getLinesAfterCommand(command);
             if (lines.size() > 0) {
+                Collections.reverse(lines);
                 return lines;
             }
             try {
@@ -168,42 +163,6 @@ public class TmuxInteractor {
             LOG.error("Unable to read input from terminal. {}", e.getMessage(), e);
             throw new IllegalStateException("Unable to read input from terminal.");
         }
-    }
-
-    private void validateAgainstWhitelist(String command) {
-        Predicate<String> matchesCommand = matchesRegex(command);
-        if (whiteListedCommands.size() > 0) {
-            whiteListedCommands.stream()
-                    .filter(matchesCommand)
-                    .findAny()
-                    .orElseThrow(() -> handleNotWhitelisted(command));
-        }
-        LOG.debug("Command '{}' passed the whitelist validation.", command);
-    }
-
-    private void validateAgainstBlacklist(String command) {
-        Predicate<String> matchesCommand = matchesRegex(command);
-        if (blackListedCommands.size() > 0) {
-            blackListedCommands.stream()
-                    .filter(matchesCommand)
-                    .findAny()
-                    .ifPresent(this::handleBlacklisted);
-        }
-        LOG.debug("Command '{}' passed the blacklist validation.", command);
-    }
-
-    private Predicate<String> matchesRegex(String listedCommand) {
-        return str -> Pattern.matches(listedCommand, str);
-    }
-
-    private IllegalCommandException handleNotWhitelisted(String command) {
-        String error = String.format("Command '%s' is not allowed: Not whitelisted.", command);
-        return new IllegalCommandException(error);
-    }
-
-    private void handleBlacklisted(String command) {
-        String error = String.format("Commands '%s' is not allowed: Blacklisted.", command);
-        throw new IllegalCommandException(error);
     }
 
 }
